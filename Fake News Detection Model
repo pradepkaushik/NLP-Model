@@ -1,0 +1,240 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[1]:
+
+
+import pandas as pd
+import nltk
+import matplotlib.pyplot as plt
+get_ipython().run_line_magic('matplotlib', 'inline')
+
+
+# In[2]:
+
+
+df = pd.read_csv('fake_or_real_news.csv')
+
+
+# In[3]:
+
+
+df.head(2)
+
+
+# In[5]:
+
+
+df.drop('Unnamed: 0',axis=1,inplace=True)
+
+
+# In[6]:
+
+
+df.head(2)
+
+
+# In[9]:
+
+
+df.drop('text',axis=1,inplace=True)
+
+
+# In[10]:
+
+
+df.head(2)
+
+
+# In[11]:
+
+
+mess = df['title']
+
+
+# In[12]:
+
+
+import string
+
+
+# In[16]:
+
+
+from nltk.corpus import stopwords
+
+
+# In[13]:
+
+
+def text_process(mess):
+    
+    nopunc = [x for x in mess if x not in string.punctuation]
+    nopunc = ''.join(nopunc)
+    
+    return[word for word in nopunc.split() if word.lower() not in stopwords.words('english')]
+
+
+# In[17]:
+
+
+mess.head(4).apply(text_process)
+
+
+# In[18]:
+
+
+from sklearn.feature_extraction.text import CountVectorizer
+
+
+# In[ ]:
+
+
+
+
+
+# In[20]:
+
+
+bow_transformer = CountVectorizer(analyzer=text_process).fit(mess)
+
+
+# In[21]:
+
+
+print(len(bow_transformer.vocabulary_))
+
+
+# In[22]:
+
+
+message_bow = bow_transformer.transform(mess)
+
+
+# In[23]:
+
+
+message_bow.nnz
+
+
+# In[24]:
+
+
+from sklearn.feature_extraction.text import TfidfTransformer
+
+
+# In[25]:
+
+
+tfidf_transformer = TfidfTransformer().fit(message_bow)
+
+
+# In[26]:
+
+
+message_tfidf = tfidf_transformer.transform(message_bow)
+
+
+# In[27]:
+
+
+from sklearn.naive_bayes import MultinomialNB
+
+
+# In[28]:
+
+
+news_detection = MultinomialNB().fit(message_tfidf,df['label'])
+
+
+# In[29]:
+
+
+all_pred = news_detection.predict(message_tfidf)
+
+
+# In[30]:
+
+
+all_pred
+
+
+# In[31]:
+
+
+from sklearn.cross_validation import train_test_split
+
+
+# In[32]:
+
+
+msg_train,msg_test,label_train,label_test = train_test_split(mess,df['label'],test_size=0.3)
+
+
+# In[33]:
+
+
+from sklearn.pipeline import Pipeline
+
+
+# In[34]:
+
+
+pipeline = Pipeline([
+    ('bow',CountVectorizer(analyzer=text_process)),
+    ('tfidf',TfidfTransformer()),
+    ('classifier',MultinomialNB())
+])
+
+
+# In[35]:
+
+
+pipeline.fit(msg_train,label_train)
+
+
+# In[36]:
+
+
+predictions = pipeline.predict(msg_test)
+
+
+# In[37]:
+
+
+from sklearn.metrics import classification_report,confusion_matrix
+
+
+# In[38]:
+
+
+print(classification_report(label_test,predictions))
+
+print('\n')
+
+print(confusion_matrix(label_test,predictions))
+
+
+# In[39]:
+
+
+cm = confusion_matrix(label_test,predictions)
+
+
+# In[40]:
+
+
+import seaborn as sns
+
+
+# In[42]:
+
+
+sns.heatmap(cm,annot=True,cmap='Blues',linewidths=0.4)
+
+
+# In[43]:
+
+
+print("Accuracy = {}%".format((cm.diagonal().sum()/cm.sum()) * 100))
+
